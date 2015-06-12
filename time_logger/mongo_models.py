@@ -12,6 +12,10 @@ class ViewTimeLog(mongoengine.Document):
     request_post = mongoengine.DictField()
     dc = mongoengine.DateTimeField()
 
+    meta = {
+        'indexes': ['-duration', 'dc'],
+    }
+
     def save(self, *args, **kwargs):
         if not self.dc:
             self.dc = datetime.datetime.now()

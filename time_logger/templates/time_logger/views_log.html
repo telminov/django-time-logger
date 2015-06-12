@@ -1,0 +1,52 @@
+<form>
+    {{ form.as_p }}
+    <input type="submit">
+</form>
+
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Длительность</th>
+            <th>view path</th>
+            <th>view args</th>
+            <th>view kwargs</th>
+            <th>Имя пользователя</th>
+            <th>GET</th>
+            <th>POST</th>
+            <th>Дата</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        {% for item in page_obj.object_list %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ item.duration }}</td>
+                <td>{{ item.view_func_path }}</td>
+                <td>
+                    {% for v in item.view_args %}
+                        <div>{{ v }}</div>
+                    {% endfor %}
+                </td>
+                <td>
+                    {% for k, v in item.view_kwargs.items %}
+                        <div>{{ k }}: {{ v }}</div>
+                    {% endfor %}
+                </td>
+                <td>{{ item.username }}</td>
+                <td>
+                    {% for k, v in item.request_get.items %}
+                        <div>{{ k }}: {{ v }}</div>
+                    {% endfor %}
+                </td>
+                <td>
+                    {% for k, v in item.request_post.items %}
+                        <div>{{ k }}: {{ v }}</div>
+                    {% endfor %}
+                </td>
+                <td>{{ item.dc }}</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>

@@ -27,7 +27,7 @@ class ViewTimeLogger(object):
 
     def process_exception(self, request, exception):
         self._log_view(request)
-        return exception
+        return None
 
 
     def _log_view(self, request):
