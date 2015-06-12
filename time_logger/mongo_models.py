@@ -1,6 +1,7 @@
 # coding: utf-8
 import datetime
 import mongoengine
+from django.conf import settings
 
 class ViewTimeLog(mongoengine.Document):
     duration = mongoengine.IntField(help_text='View process duration in seconds')
@@ -14,6 +15,7 @@ class ViewTimeLog(mongoengine.Document):
 
     meta = {
         'indexes': ['-duration', 'dc'],
+        'db_alias': getattr(settings, 'LOG_VIEW_TIME_DB_ALIAS', 'default')
     }
 
     def save(self, *args, **kwargs):

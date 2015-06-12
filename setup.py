@@ -4,7 +4,7 @@ from distutils.core import setup
 
 setup(
     name='django-time-logger',
-    version='0.0.2',
+    version='0.0.3',
     description='Time logger for django',
     author='Telminov Sergey',
     url='https://github.com/telminov/django-time-logger',
