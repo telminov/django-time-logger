@@ -31,6 +31,9 @@ class ViewTimeLogger(object):
 
 
     def _log_view(self, request):
+        if not hasattr(request, 'time_logger'):
+            return
+
         duration = datetime.datetime.now() - request.time_logger['start_dt']
 
         is_exceed_time = hasattr(settings, 'LOG_VIEW_TIME') and duration > datetime.timedelta(seconds=settings.LOG_VIEW_TIME)
