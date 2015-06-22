@@ -1,4 +1,5 @@
 # django-time-logger
+[![Build Status](https://travis-ci.org/telminov/django-time-logger.svg?branch=master)](https://travis-ci.org/telminov/django-time-logger)
 
 Installation python package:
 ```
