@@ -1,2 +1,4 @@
 django
+pymongo==2.8.1
 mongoengine
+sw-django-utils

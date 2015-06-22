@@ -22,7 +22,6 @@ class ViewsLog(MultipleObjectMixin, TemplateView):
         context['form'] = self.form
         return context
 
-
     def get_queryset(self):
         params = self.get_queryset_params()
         qs = mongo_models.ViewTimeLog.objects.filter(**params)
