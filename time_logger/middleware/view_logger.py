@@ -36,7 +36,9 @@ class ViewTimeLogger(object):
 
         duration = datetime.datetime.now() - request.time_logger['start_dt']
 
-        is_exceed_time = hasattr(settings, 'LOG_VIEW_TIME') and duration > datetime.timedelta(seconds=settings.LOG_VIEW_TIME)
+        is_exceed_time = hasattr(settings, 'LOG_VIEW_TIME') \
+                         and settings.LOG_VIEW_TIME \
+                         and duration > datetime.timedelta(seconds=settings.LOG_VIEW_TIME)
         if is_exceed_time:
             view_func_module = inspect.getmodule(request.time_logger['view_func'])
             view_func_path = '%s.%s' % (view_func_module.__name__, request.time_logger['view_func'].__name__)

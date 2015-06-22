@@ -42,7 +42,7 @@ INSTALLED_APPS = [
 
 SECRET_KEY = "123"
 
-LOG_VIEW_TIME = 1
+LOG_VIEW_TIME = 10
 
 TEST_RUNNER = 'djutils.testrunner.TestRunnerWithMongo'
 

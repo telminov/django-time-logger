@@ -1,6 +1,5 @@
 # coding: utf-8
 # python setup.py sdist register upload
-# from distutils.core import setup
 from setuptools import setup
 
 setup(
