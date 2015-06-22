@@ -1,5 +1,6 @@
 # django-time-logger
 [![Build Status](https://travis-ci.org/telminov/django-time-logger.svg?branch=master)](https://travis-ci.org/telminov/django-time-logger)
+[![Coverage Status](https://coveralls.io/repos/telminov/django-time-logger/badge.svg?branch=master)](https://coveralls.io/r/telminov/django-time-logger?branch=master)
 
 Installation python package:
 ```
