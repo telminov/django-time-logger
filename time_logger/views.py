@@ -34,7 +34,9 @@ class ViewsLog(MultipleObjectMixin, TemplateView):
             params['duration__gte'] = self.form.cleaned_data['min_duration']
 
         if self.form.cleaned_data.get('view_func_path'):
-            params['view_func_path'] = self.form.cleaned_data['view_func_path']
+            params['view_func_path'] = {
+                '$regex': '^%s' % self.form.cleaned_data['view_func_path']
+            }
 
         if self.form.cleaned_data.get('min_dc'):
             params['dc__gte'] = _date_to_datetime(self.form.cleaned_data['min_dc'])
