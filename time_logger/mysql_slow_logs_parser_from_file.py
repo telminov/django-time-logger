@@ -85,7 +85,7 @@ class MysqlSlowQueriesParser(object):
             line = self._get_next_line()
 
         queries = self._parse_queries(line)
-        entry['query_list'] = queries
+        entry['queries_list'] = queries
 
         return entry
 
