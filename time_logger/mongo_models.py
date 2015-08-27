@@ -46,3 +46,19 @@ class MysqlSlowQueriesTimeLog(mongoengine.Document):
         return cls.objects.create(**entry_copy)
 
 
+class ParsedLogs(mongoengine.Document):
+    SLOW_QUERY_TYPE = 'slow_query'
+    TYPE_CHOICES = (
+        (SLOW_QUERY_TYPE, SLOW_QUERY_TYPE),
+    )
+    type = mongoengine.StringField(choices=TYPE_CHOICES)
+    st_ino = mongoengine.StringField(verbose_name='inode number')
+    st_dev = mongoengine.IntField(unique_with='st_ino', verbose_name='id of device containing file')
+
+    meta = {
+        'ndexes': [('st_ino', 'st_dev'), ],
+        'db_alias': getattr(settings, 'LOG_VIEW_TIME_DB_ALIAS', 'default')
+    }
+
+
+
