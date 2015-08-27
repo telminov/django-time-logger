@@ -67,7 +67,7 @@ class MysqlSlowQueriesParser(object):
             return None
         if line.startswith('# Time:'):
                 timestamp = self._parse_time(line)
-                entry['time'] = timestamp
+                entry['start_time'] = timestamp
                 line = self._get_next_line()
 
         if line.startswith('# User@Host:'):

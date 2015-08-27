@@ -15,9 +15,17 @@ class Command(BaseCommand):
         parser.add_argument('log_path')
 
     def handle(self, *args, **options):
+        logs = mongo_models.MysqlSlowQueriesTimeLog.objects.all()
+        latest_start_time = None
+        if logs:
+            latest_start_time = logs.latest('start_time').start_time
         cursor = connection.cursor()
         cursor.excute("use mysql")
-        cursor.excute("SELECT * FROM slow_log")
+
+        query = "SELECT * FROM slow_log"
+        if latest_start_time:
+            query += " WHERE start_time > %s" % latest_start_time.iso_format()
+        cursor.excute(query)
         fields = map(lambda x: x[0], cursor.description)
         result = [dict(zip(fields, row)) for row in cursor.fetchall()]
 
