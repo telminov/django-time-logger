@@ -28,3 +28,19 @@ mongoengine.register_connection('local', ...)
 ...
 LOG_VIEW_TIME_DB_ALIAS = 'local'
 ```
+
+Mysql configuration for slow queries logging. Block [mysqld] in my.cnf should contain next strings:
+```
+slow_query_log = 1
+long_query_time = 3
+log_output = TABLE
+expire_logs_days = 1 - See more at: http://gurutek.biz/mysql-slow-query-logging-to-table/#sthash.FZAL94hW.dpuf
+```
+Set mysql configs without restart server:
+```
+set global log_slow_queries = 1;
+set global long_query_time = 3;
+set global log_output = 'TABLE';
+set global expire_logs_days = 1;
+set global log = 1; - See more at: http://gurutek.biz/mysql-slow-query-logging-to-table/#sthash.FZAL94hW.dpuf
+```
