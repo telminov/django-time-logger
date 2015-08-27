@@ -39,7 +39,7 @@ class MysqlSlowQueriesTimeLog(mongoengine.Document):
     server_id = mongoengine.IntField()
 
     meta = {
-        'indexes': ['query_time', 'timestamp'],
+        'indexes': ['query_time', 'start_time'],
         'db_alias': getattr(settings, 'LOG_VIEW_TIME_DB_ALIAS', 'default')
     }
 
