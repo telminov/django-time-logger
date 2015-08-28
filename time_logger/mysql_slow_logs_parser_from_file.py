@@ -5,34 +5,39 @@ import decimal
 
 _DATE_PAT = r"\d{6}\s+\d{1,2}:\d{2}:\d{2}"
 
-_HEADER_VERSION = re.compile(r"(.+), Version: (\d+)\.(\d+)\.(\d+)(?:-(\S+))?")
-_HEADER_SERVER = re.compile(r"Tcp port:\s*(\d+)\s+Unix socket:\s+(.*)")
+# SLOW LOG EXPRESSIONS
+_SLOW_HEADER_VERSION = re.compile(r"(.+), Version: (\d+)\.(\d+)\.(\d+)(?:-(\S+))?")
+_SLOW_HEADER_SERVER = re.compile(r"Tcp port:\s*(\d+)\s+Unix socket:\s+(.*)")
 
-_TIMESTAMP = re.compile(r"#\s+Time:\s+(" + _DATE_PAT + r")")
-_USERHOST = re.compile(r"#\s+User@Host:\s+"
+_SLOW_TIMESTAMP = re.compile(r"#\s+Time:\s+(" + _DATE_PAT + r")")
+_SLOW_USERHOST = re.compile(r"#\s+User@Host:\s+"
                             r"(?:([\w\d]+))?\s*"
                             r"\[\s*([\w\d]+)\s*\]\s*"
                             r"@\s*"
                             r"([\w\d]*)\s*"
                             r"\[\s*([\d.]*)\s*\]")
-_STATS = re.compile(r"#\sQuery_time:\s(\d*\.\d{1,6})\s*"
+_SLOW_STATS = re.compile(r"#\sQuery_time:\s(\d*\.\d{1,6})\s*"
                          r"Lock_time:\s(\d*\.\d{1,6})\s*"
                          r"Rows_sent:\s(\d*)\s*"
                          r"Rows_examined:\s(\d*)")
 
+# BIN_LOG EXPRESSIONS
+_BIN_LOG_END = '# End of log file'
+_BIN_LOG_DELIMITER = re.compile(r"DELIMITER\s(.+);")
+_BIN_LOG_QUERY_STATS = re.compile(r"#(" + _DATE_PAT + ")\s+"
+                            r"server\s+id\s+(\d+)\s+"
+                            r"end_log_pos\s+(\d+)\s+"
+                            r"Query\s+thread_id=(\d+)\s+"
+                            r"exec_time=(\d+)\s+"
+                            r"error_code=(\d+)")
+_BIN_LOG_DB = re.compile(r"use `(.+)`")
+_BING_LOG_TIMESTAMP = re.compile(r"SET TIMESTAMP=(\d+)")
 
 class LogParserError(Exception):
     pass
 
 
-class MysqlSlowQueriesParser(object):
-    def __init__(self, log_path):
-        self._stream = open(log_path, 'r')
-
-        line = self._get_next_line()
-        if line is not None and line.endswith('started with:'):
-            self._parse_headers()
-
+class BaseLogParser(object):
     def __iter__(self):
         return self
 
@@ -46,9 +51,104 @@ class MysqlSlowQueriesParser(object):
         line = self._stream.readline()
         if not line:
             return None
-        return line.rstrip('\r\n')
 
-    def _parse_headers(self):
+        delimiter = getattr(self, 'delimiter', '')
+
+        return line.rstrip('%s\r\n' % delimiter)
+
+    @staticmethod
+    def _parse_line(regex, line):
+        info = regex.match(line)
+        if info is None:
+            raise LogParserError('Failed parsing Slow Query line: %s' %
+                                 line[:30])
+        return info.groups()
+
+    def _parse_headers(self, line):
+        raise NotImplementedError()
+
+    def _parse_entry(self):
+        raise NotImplementedError()
+
+
+class MysqlBinLogParser(BaseLogParser):
+    def __init__(self, log_path):
+        # TODO обкатать парсер на одном файле, затем натравливать только на новые логи
+        self._stream = open(log_path, 'r')
+
+        line = self._get_next_line()
+        if line is not None:
+            self._parse_headers(line)
+
+    def _parse_headers(self, line):
+        while line and not line.startswith('DELIMITER'):
+            line = self._get_next_line()
+        self.delimiter = self._parse_line(_BIN_LOG_DELIMITER, line)[0]
+
+        # for now we do not need all this staff
+        # str: at number
+        line = self._get_next_line()
+        # str: start string
+        line = self._get_next_line()
+
+        # session block
+        # str: at number
+        line = self._get_next_line()
+        # str: session query stats
+        line = self._get_next_line()
+        # str: timestamp
+        line = self._get_next_line()
+
+        # session data
+        while not line.startswith('BEGIN'):
+            line = self._get_next_line()
+
+    def _parse_entry(self):
+        entry = {}
+        # str: delimiter
+        line = self._get_next_line()
+
+        if not line.startswith(self.delimiter):
+            raise LogParserError('Can not correct read log structure')
+
+        # str: at
+        line = self._get_next_line()
+
+        # str: query stats
+        line = self._get_next_line()
+        start_time, server_id, end_log_pos, thread_id, exec_time, error_code =\
+            self._parse_line(_BIN_LOG_QUERY_STATS, line)
+
+        # str: db
+        line = self._get_next_line()
+        db = self._parse_line(_BIN_LOG_DB, line)[0]
+
+        # str: timestamp
+        line = self._get_next_line()
+        timestamp = self._parse_line(_BING_LOG_TIMESTAMP, line)[0]
+
+        # str: query
+        line = self._get_next_line()
+        query_type = line.split(' ')[0]
+        query = line
+
+        # looks like mysql log save logs for commit operation separately
+        # so i do not want to save this info. Let's move to another crud command
+        while not line.startswith('BEGIN'):
+            line = self._get_next_line()
+
+        return entry
+
+
+class MysqlSlowQueriesParser(BaseLogParser):
+    def __init__(self, log_path):
+        self._stream = open(log_path, 'r')
+
+        line = self._get_next_line()
+        if line is not None and line.endswith('started with:'):
+            self._parse_headers(line)
+
+    def _parse_headers(self, line):
         # header strings:
         #   1 run command and version
         #   2 connection info
@@ -58,7 +158,6 @@ class MysqlSlowQueriesParser(object):
         self._get_next_line()
         line = self._get_next_line()
         return line
-
 
     def _parse_entry(self):
         entry = {}
@@ -89,27 +188,19 @@ class MysqlSlowQueriesParser(object):
 
         return entry
 
-    @staticmethod
-    def _parse_line(regex, line):
-        info = regex.match(line)
-        if info is None:
-            raise LogParserError('Failed parsing Slow Query line: %s' %
-                                 line[:30])
-        return info.groups()
-
     def _parse_time(self, line):
-        info = self._parse_line(_TIMESTAMP, line)
+        info = self._parse_line(_SLOW_TIMESTAMP, line)
         return datetime.datetime.strptime(info[0], "%y%m%d %H:%M:%S")
 
     def _parse_connection_info(self, line):
         try:
-            info = self._parse_line(_USERHOST, line)
+            info = self._parse_line(_SLOW_USERHOST, line)
         except:
             info = ('', '', '', '0.0.0.0')
         return info
 
     def _parse_statistics(self, line):
-        return self._parse_line(_STATS, line)
+        return self._parse_line(_SLOW_STATS, line)
 
     def _parse_queries(self, line):
         query_string = []
