@@ -241,7 +241,7 @@ class MysqlSlowQueriesParser(BaseLogParser):
         return query_string
 
 # usage example
-if __name__ == '__main__':
-    cnt = 0
-    for log in MysqlBinLogParser('bin_logs.sql'):
-        cnt += 1
+# if __name__ == '__main__':
+#     cnt = 0
+#     for log in MysqlBinLogParser('bin_logs.sql'):
+#         cnt += 1
