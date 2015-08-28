@@ -3,6 +3,9 @@ import re
 import datetime
 import decimal
 
+# not shure in names. So in my logs only Query and Intvar
+NOT_PARSING_EVENTS = ['Xid', 'User_var', 'Rand', 'Intvar']
+
 _DATE_PAT = r"\d{6}\s+\d{1,2}:\d{2}:\d{2}"
 
 # SLOW LOG EXPRESSIONS
@@ -22,7 +25,7 @@ _SLOW_STATS = re.compile(r"#\sQuery_time:\s(\d*\.\d{1,6})\s*"
                          r"Rows_examined:\s(\d*)")
 
 # BIN_LOG EXPRESSIONS
-_BIN_LOG_END = '# End of log file'
+BIN_LOG_END = '# End of log file'
 _BIN_LOG_DELIMITER = re.compile(r"DELIMITER\s(.+);")
 _BIN_LOG_QUERY_STATS = re.compile(r"#(" + _DATE_PAT + ")\s+"
                             r"server\s+id\s+(\d+)\s+"
@@ -93,18 +96,17 @@ class MysqlBinLogParser(BaseLogParser):
 
         # session block
         # str: at number
-        line = self._get_next_line()
+        self._get_next_line()
         # str: session query stats
-        line = self._get_next_line()
+        self._get_next_line()
         # str: timestamp
-        line = self._get_next_line()
+        self._get_next_line()
 
         # session data
         while not line.startswith('BEGIN'):
             line = self._get_next_line()
 
     def _parse_entry(self):
-        entry = {}
         # str: delimiter
         line = self._get_next_line()
 
@@ -112,19 +114,32 @@ class MysqlBinLogParser(BaseLogParser):
             raise LogParserError('Can not correct read log structure')
 
         # str: at
-        line = self._get_next_line()
+        self._get_next_line()
 
         # str: query stats
         line = self._get_next_line()
+        # skip not interesting events
+        if any(event in line for event in NOT_PARSING_EVENTS):
+            # if we have Intvar event for example we have to skip some strings
+            # for example:
+                # #150822 13:01:45 server id 192168352  end_log_pos 1677  Intvar
+                # SET INSERT_ID=85380923/*!*/;
+                # at 1677
+            self._get_next_line()
+            self._get_next_line()
+            line = self._get_next_line()
+
         start_time, server_id, end_log_pos, thread_id, exec_time, error_code =\
             self._parse_line(_BIN_LOG_QUERY_STATS, line)
 
         # str: db
         line = self._get_next_line()
-        db = self._parse_line(_BIN_LOG_DB, line)[0]
+        db = None
+        if line.startswith('use'):
+            db = self._parse_line(_BIN_LOG_DB, line)[0]
+            line = self._get_next_line()
 
         # str: timestamp
-        line = self._get_next_line()
         timestamp = self._parse_line(_BING_LOG_TIMESTAMP, line)[0]
 
         # str: query
@@ -136,8 +151,22 @@ class MysqlBinLogParser(BaseLogParser):
         # so i do not want to save this info. Let's move to another crud command
         while not line.startswith('BEGIN'):
             line = self._get_next_line()
+            if line == BIN_LOG_END:
+                return None
 
-        return entry
+        return {
+            'start_time': start_time,
+            'server_id': server_id,
+            'end_log_pos': end_log_pos,
+            'thread_id': thread_id,
+            'exec_time': exec_time,
+            'error_code': error_code,
+            'db': db,
+            'timestamp': timestamp,
+            'query': query,
+            'query_type': query_type,
+
+        }
 
 
 class MysqlSlowQueriesParser(BaseLogParser):
@@ -212,6 +241,7 @@ class MysqlSlowQueriesParser(BaseLogParser):
         return query_string
 
 # usage example
-# if __name__ == '__main__':
-#     for log in MysqlSlowQueriesParser('mysql-slow.log.1'):
-#         print log
+if __name__ == '__main__':
+    cnt = 0
+    for log in MysqlBinLogParser('bin_logs.sql'):
+        cnt += 1
