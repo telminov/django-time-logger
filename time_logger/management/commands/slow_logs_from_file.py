@@ -4,6 +4,7 @@ from django.core.management.base import BaseCommand
 from time_logger.mysql_logs_parser_from_file import MysqlSlowQueriesParser
 from time_logger import mongo_models
 
+
 class Command(BaseCommand):
     help = 'Improt mysql slow query log from file to mongodb'
 
