@@ -63,7 +63,7 @@ class BaseLogParser(object):
     def _parse_line(regex, line):
         info = regex.match(line)
         if info is None:
-            raise LogParserError('Failed parsing Slow Query line: %s' %
+            raise LogParserError('Failed parsing line: %s' %
                                  line[:30])
         return info.groups()
 
@@ -79,6 +79,9 @@ class MysqlBinLogParser(BaseLogParser):
         # TODO обкатать парсер на одном файле, затем натравливать только на новые логи
         self._stream = open(log_path, 'r')
 
+        # line which contains query info about new expression
+        self._cached_line = None
+
         line = self._get_next_line()
         if line is not None:
             self._parse_headers(line)
@@ -88,45 +91,19 @@ class MysqlBinLogParser(BaseLogParser):
             line = self._get_next_line()
         self.delimiter = self._parse_line(_BIN_LOG_DELIMITER, line)[0]
 
-        # for now we do not need all this staff
-        # str: at number
-        line = self._get_next_line()
-        # str: start string
-        line = self._get_next_line()
-
-        # session block
-        # str: at number
-        self._get_next_line()
-        # str: session query stats
-        self._get_next_line()
-        # str: timestamp
-        self._get_next_line()
-
-        # session data
-        while not line.startswith('BEGIN'):
+        # skip some header info and session
+        while not 'BEGIN' in line:
             line = self._get_next_line()
+        # get first Query
+        while not 'Query' in line:
+            line = self._get_next_line()
+        self._cached_line = line
 
     def _parse_entry(self):
-        # str: delimiter
-        line = self._get_next_line()
-
-        if not line.startswith(self.delimiter):
-            raise LogParserError('Can not correct read log structure')
-
-        # str: at
-        self._get_next_line()
-
-        # str: query stats
-        line = self._get_next_line()
-        # skip not interesting events
-        if any(event in line for event in NOT_PARSING_EVENTS):
-            # if we have Intvar event for example we have to skip some strings
-            # for example:
-                # #150822 13:01:45 server id 192168352  end_log_pos 1677  Intvar
-                # SET INSERT_ID=85380923/*!*/;
-                # at 1677
-            self._get_next_line()
-            self._get_next_line()
+        # this line must contains Query stats
+        if self._cached_line:
+            line = self._cached_line
+        else:
             line = self._get_next_line()
 
         start_time, server_id, end_log_pos, thread_id, exec_time, error_code =\
@@ -147,12 +124,13 @@ class MysqlBinLogParser(BaseLogParser):
         query_type = line.split(' ')[0]
         query = line
 
-        # looks like mysql log save logs for commit operation separately
-        # so i do not want to save this info. Let's move to another crud command
-        while not line.startswith('BEGIN'):
+        # skip line to another Query command
+        while not 'Query' in line:
             line = self._get_next_line()
             if line == BIN_LOG_END:
                 return None
+        # cached new query info line
+        self._cached_line = line
 
         return {
             'start_time': start_time,
@@ -245,3 +223,4 @@ class MysqlSlowQueriesParser(BaseLogParser):
 #     cnt = 0
 #     for log in MysqlBinLogParser('bin_logs.sql'):
 #         cnt += 1
+#     print cnt
