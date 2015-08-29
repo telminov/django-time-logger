@@ -4,6 +4,7 @@ import datetime
 import mongoengine
 from django.conf import settings
 
+
 class ViewTimeLog(mongoengine.Document):
     duration = mongoengine.IntField(help_text='View process duration in seconds')
     view_func_path = mongoengine.StringField()
@@ -49,22 +50,48 @@ class MysqlSlowQueriesTimeLog(mongoengine.Document):
     #     entry_copy = deepcopy(entry)
     #     return cls.objects.create(**entry_copy)
 
-# class ParsedLogs(mongoengine.Document):
-#     SLOW_QUERY_TYPE = 'slow_query'
-#     TYPE_CHOICES = (
-#         (SLOW_QUERY_TYPE, SLOW_QUERY_TYPE),
-#     )
-#     type = mongoengine.StringField(choices=TYPE_CHOICES)
-#     st_ino = mongoengine.StringField(verbose_name='inode number')
-#     st_dev = mongoengine.IntField(unique_with='st_ino', verbose_name='id of device containing file')
-#
-#     meta = {
-#         'indexes': [('st_ino', 'st_dev'), ],
-#         'db_alias': getattr(settings, 'LOG_VIEW_TIME_DB_ALIAS', 'default')
-#     }
-#
-#     def get_all_not_parsed_files(self):
-#         pass
+
+class MysqlBinLogTimeLog(mongoengine.Document):
+    UPDATE_QUERY_TYPE = 'UPDATE'
+    DELETE_QUERY_TYPE = 'DELETE'
+    INSERT_QUERY_TYPE = 'INSERT'
+    INSERT_INTO_QUERY_TYPE = 'INSERT_INTO'
+    SET_QUERY_TYPE = 'SET'
+    QUERY_TYPE_CHOICES = (
+        (UPDATE_QUERY_TYPE, UPDATE_QUERY_TYPE),
+        (DELETE_QUERY_TYPE, DELETE_QUERY_TYPE),
+        (INSERT_QUERY_TYPE, INSERT_QUERY_TYPE),
+        (INSERT_INTO_QUERY_TYPE, INSERT_INTO_QUERY_TYPE),
+        (SET_QUERY_TYPE, SET_QUERY_TYPE),
+    )
+
+    LOGGED_QUERY_TYPES = [
+        UPDATE_QUERY_TYPE,
+        DELETE_QUERY_TYPE,
+        INSERT_INTO_QUERY_TYPE,
+        INSERT_QUERY_TYPE
+    ]
+
+    start_time = mongoengine.DateTimeField()
+    exec_time = mongoengine.IntField()
+    timestamp = mongoengine.StringField()
+    error_code = mongoengine.IntField()
+    query = mongoengine.StringField()
+    query_type = mongoengine.StringField(choices=QUERY_TYPE_CHOICES)
 
 
+class ParsedLogsFiles(mongoengine.Document):
+    SLOW_QUERY_TYPE = 'slow_query'
+    TYPE_CHOICES = (
+        (SLOW_QUERY_TYPE, SLOW_QUERY_TYPE),
+    )
+    type = mongoengine.StringField(choices=TYPE_CHOICES)
+    file_name = mongoengine.StringField(verbose_name='file_name')
 
+    meta = {
+        'indexes': ['file_name', ],
+        'db_alias': getattr(settings, 'LOG_VIEW_TIME_DB_ALIAS', 'default')
+    }
+
+    def get_all_not_parsed_files(self):
+        pass

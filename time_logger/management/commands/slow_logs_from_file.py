@@ -20,4 +20,4 @@ class Command(BaseCommand):
                 'rows_sent': entry['rows_sent'],
                 'sql_text': ' ;'.join(entry['queries_list']),
             }
-            mongo_models.MysqlSlowQueriesTimeLog.objects.create(data)
+            mongo_models.MysqlSlowQueriesTimeLog.objects.create(**data)
