@@ -79,13 +79,12 @@ class MysqlBinLogTimeLog(mongoengine.Document):
     query = mongoengine.StringField()
     query_type = mongoengine.StringField(choices=QUERY_TYPE_CHOICES)
 
+    meta = {
+        'indexes': ['exec_time', 'query_type'],
+        'db_alias': getattr(settings, 'LOG_VIEW_TIME_DB_ALIAS', 'default')
+    }
 
 class ParsedLogsFiles(mongoengine.Document):
-    SLOW_QUERY_TYPE = 'slow_query'
-    TYPE_CHOICES = (
-        (SLOW_QUERY_TYPE, SLOW_QUERY_TYPE),
-    )
-    type = mongoengine.StringField(choices=TYPE_CHOICES)
     file_name = mongoengine.StringField(verbose_name='file_name')
 
     meta = {

@@ -13,11 +13,11 @@ class Command(BaseCommand):
     help = 'Import mysql binlog from file to mongodb'
 
     def add_arguments(self, parser):
-        parser.add_argument('log_path', required=False)
+        parser.add_argument('--log_path', default=None)
 
     def handle(self, *args, **options):
         new_binlog_file_paths = []
-        parsed_log_names = mongo_models.ParsedLogsFiles.objects.values_list('file_name', flat=True)
+        parsed_log_names = mongo_models.ParsedLogsFiles.objects.values_list('file_name')
 
         log_path = options.get('log_path')
         if log_path:
@@ -33,22 +33,17 @@ class Command(BaseCommand):
                 ]
 
             # cutoff last log. Mysql writes binlogs in it
-            new_binlog_file_names = sorted(new_binlog_file_names)[:len(new_binlog_file_names) - 1]
+            new_binlog_file_names = sorted(new_binlog_file_names)[:-1]
 
             # create dir for readable logs
-            os.mkdir(PATH_TO_READABLE_BINLOGS)
+            if not os.path.exists(PATH_TO_READABLE_BINLOGS):
+                os.mkdir(PATH_TO_READABLE_BINLOGS)
 
             # make binlogs readable
             for file_name in new_binlog_file_names:
                 # command mysqlbinlog --verbose --base64-output=NEVER  mysql-bin.002491 > bin_logs.sql
-                subprocess.call([
-                    'mysqlbinlog',
-                    '--verbose',
-                    '--base64-output=NEVER',
-                    '%s%s' % (PATH_TO_BINLOGS, file_name),
-                    '>',
-                    '%s%s' % (PATH_TO_READABLE_BINLOGS, file_name)
-                ])
+                rez = subprocess.call('mysqlbinlog --verbose %s%s > %s%s' %
+                                      (PATH_TO_BINLOGS, file_name, PATH_TO_READABLE_BINLOGS, file_name), shell=True)
 
                 new_binlog_file_paths.append('%s%s' % (PATH_TO_READABLE_BINLOGS, file_name))
 
@@ -61,4 +56,5 @@ class Command(BaseCommand):
                     del entry['thread_id']
                     del entry['db']
                     mongo_models.MysqlBinLogTimeLog.objects.create(**entry)
+                    mongo_models.ParsedLogsFiles.objects.create(file_name=log_path.split('/')[-1])
 

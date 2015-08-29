@@ -94,9 +94,13 @@ class MysqlBinLogParser(BaseLogParser):
         # skip some header info and session
         while not 'BEGIN' in line:
             line = self._get_next_line()
+            if line is None:
+                return None
         # get first Query
         while not 'Query' in line:
             line = self._get_next_line()
+            if line is None:
+                return None
         self._cached_line = line
 
     def _parse_entry(self):
@@ -105,6 +109,9 @@ class MysqlBinLogParser(BaseLogParser):
             line = self._cached_line
         else:
             line = self._get_next_line()
+
+        if line is None:
+            return None
 
         start_time, server_id, end_log_pos, thread_id, exec_time, error_code =\
             self._parse_line(_BIN_LOG_QUERY_STATS, line)
