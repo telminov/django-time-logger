@@ -1,7 +1,9 @@
 # coding: utf-8
+from copy import deepcopy
 import datetime
 import mongoengine
 from django.conf import settings
+
 
 class ViewTimeLog(mongoengine.Document):
     duration = mongoengine.IntField(help_text='View process duration in seconds')
@@ -22,3 +24,73 @@ class ViewTimeLog(mongoengine.Document):
         if not self.dc:
             self.dc = datetime.datetime.now()
         return super(ViewTimeLog, self).save(*args, **kwargs)
+
+
+class MysqlSlowQueriesTimeLog(mongoengine.Document):
+    start_time = mongoengine.DateTimeField()
+    user_host = mongoengine.StringField()
+    query_time = mongoengine.IntField()
+    lock_time = mongoengine.IntField()
+    rows_sent = mongoengine.IntField()
+    rows_examined = mongoengine.IntField()
+    sql_text = mongoengine.StringField()
+    db = mongoengine.StringField()
+    last_insert_id = mongoengine.IntField()
+    insert_id = mongoengine.IntField()
+    server_id = mongoengine.IntField()
+
+    meta = {
+        'indexes': ['query_time', 'start_time'],
+        'db_alias': getattr(settings, 'LOG_VIEW_TIME_DB_ALIAS', 'default')
+    }
+
+    # @classmethod
+    # def create_entry(cls, entry):
+    #     # in case we would modify entry dict
+    #     entry_copy = deepcopy(entry)
+    #     return cls.objects.create(**entry_copy)
+
+
+class MysqlBinLogTimeLog(mongoengine.Document):
+    UPDATE_QUERY_TYPE = 'UPDATE'
+    DELETE_QUERY_TYPE = 'DELETE'
+    INSERT_QUERY_TYPE = 'INSERT'
+    INSERT_INTO_QUERY_TYPE = 'INSERT_INTO'
+    SET_QUERY_TYPE = 'SET'
+    QUERY_TYPE_CHOICES = (
+        (UPDATE_QUERY_TYPE, UPDATE_QUERY_TYPE),
+        (DELETE_QUERY_TYPE, DELETE_QUERY_TYPE),
+        (INSERT_QUERY_TYPE, INSERT_QUERY_TYPE),
+        (INSERT_INTO_QUERY_TYPE, INSERT_INTO_QUERY_TYPE),
+        (SET_QUERY_TYPE, SET_QUERY_TYPE),
+    )
+
+    LOGGED_QUERY_TYPES = [
+        UPDATE_QUERY_TYPE,
+        DELETE_QUERY_TYPE,
+        INSERT_INTO_QUERY_TYPE,
+        INSERT_QUERY_TYPE
+    ]
+
+    start_time = mongoengine.DateTimeField()
+    exec_time = mongoengine.IntField()
+    timestamp = mongoengine.StringField()
+    error_code = mongoengine.IntField()
+    query = mongoengine.StringField()
+    query_type = mongoengine.StringField(choices=QUERY_TYPE_CHOICES)
+
+    meta = {
+        'indexes': ['exec_time', 'query_type'],
+        'db_alias': getattr(settings, 'LOG_VIEW_TIME_DB_ALIAS', 'default')
+    }
+
+class ParsedLogsFiles(mongoengine.Document):
+    file_name = mongoengine.StringField(verbose_name='file_name')
+
+    meta = {
+        'indexes': ['file_name', ],
+        'db_alias': getattr(settings, 'LOG_VIEW_TIME_DB_ALIAS', 'default')
+    }
+
+    def get_all_not_parsed_files(self):
+        pass
