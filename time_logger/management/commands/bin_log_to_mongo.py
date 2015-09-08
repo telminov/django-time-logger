@@ -1,5 +1,6 @@
 # coding: utf-8
 import os
+import datetime
 
 from django.core.management.base import BaseCommand
 import subprocess
@@ -55,6 +56,8 @@ class Command(BaseCommand):
                     del entry['end_log_pos']
                     del entry['thread_id']
                     del entry['db']
+
+                    entry['timestamp'] = datetime.datetime.fromtimestamp(entry['timestamp'])
                     models_mongo.MysqlBinLogTimeLog.objects.create(**entry)
                     models_mongo.ParsedLogsFiles.objects.create(file_name=log_path.split('/')[-1])
 

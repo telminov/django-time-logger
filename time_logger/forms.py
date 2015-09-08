@@ -13,3 +13,9 @@ class SlowQueriesLog(forms.Form):
     min_query_time = forms.IntegerField(required=False)
     min_dc = forms.DateTimeField(required=False)
     max_dc = forms.DateTimeField(required=False)
+
+
+class BinLog(forms.Form):
+    min_exec_time = forms.IntegerField(required=False)
+    min_dc = forms.DateTimeField(required=False)
+    max_dc = forms.DateTimeField(required=False)

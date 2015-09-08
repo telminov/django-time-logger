@@ -68,7 +68,7 @@ class MysqlBinLogTimeLog(mongoengine.Document):
 
     start_time = mongoengine.DateTimeField()
     exec_time = mongoengine.IntField()
-    timestamp = mongoengine.StringField()
+    timestamp = mongoengine.DateTimeField()
     error_code = mongoengine.IntField()
     query = mongoengine.StringField()
     query_type = mongoengine.StringField(choices=QUERY_TYPE_CHOICES)
