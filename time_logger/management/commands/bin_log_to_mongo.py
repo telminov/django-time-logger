@@ -4,7 +4,7 @@ import os
 from django.core.management.base import BaseCommand
 import subprocess
 from time_logger.mysql_logs_parser_from_file import MysqlBinLogParser
-from time_logger import mongo_models
+from time_logger import models_mongo
 
 PATH_TO_BINLOGS = '/var/log/mysql/'
 PATH_TO_READABLE_BINLOGS = '/tmp/binlogs/'
@@ -17,7 +17,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         new_binlog_file_paths = []
-        parsed_log_names = mongo_models.ParsedLogsFiles.objects.values_list('file_name')
+        parsed_log_names = models_mongo.ParsedLogsFiles.objects.values_list('file_name')
 
         log_path = options.get('log_path')
         if log_path:
@@ -49,12 +49,12 @@ class Command(BaseCommand):
 
         for log_path in new_binlog_file_paths:
             for entry in MysqlBinLogParser(log_path):
-                if entry['query_type'] in mongo_models.MysqlBinLogTimeLog.LOGGED_QUERY_TYPES:
+                if entry['query_type'] in models_mongo.MysqlBinLogTimeLog.LOGGED_QUERY_TYPES:
                     # remove not interested stats
                     del entry['server_id']
                     del entry['end_log_pos']
                     del entry['thread_id']
                     del entry['db']
-                    mongo_models.MysqlBinLogTimeLog.objects.create(**entry)
-                    mongo_models.ParsedLogsFiles.objects.create(file_name=log_path.split('/')[-1])
+                    models_mongo.MysqlBinLogTimeLog.objects.create(**entry)
+                    models_mongo.ParsedLogsFiles.objects.create(file_name=log_path.split('/')[-1])
 

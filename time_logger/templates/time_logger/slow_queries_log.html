@@ -1,0 +1,28 @@
+<form>
+    {{ form.as_p }}
+    <input type="submit">
+</form>
+
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>query_time</th>
+            <th>sql_text</th>
+            <th>server_id</th>
+            <th>start_time</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        {% for item in page_obj.object_list %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ item.query_time }}</td>
+                <td>{{ item.sql_text }}</td>
+                <td>{{ item.server_id }}</td>
+                <td>{{ item.start_time }}</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>

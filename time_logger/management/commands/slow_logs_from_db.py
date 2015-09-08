@@ -3,14 +3,14 @@
 from django.core.management.base import BaseCommand
 from django.db import connection
 
-from time_logger import mongo_models
+from time_logger import models_mongo
 
 
 class Command(BaseCommand):
     help = 'Improt mysql slow query log from mysql to mongodb'
 
     def handle(self, *args, **options):
-        logs = mongo_models.MysqlSlowQueriesTimeLog.objects.all()
+        logs = models_mongo.MysqlSlowQueriesTimeLog.objects.all()
         latest_start_time = None
         if logs:
             latest_start_time = logs.order_by('-start_time')[0].start_time
@@ -28,4 +28,4 @@ class Command(BaseCommand):
         for row in results:
             row['query_time'] = row['query_time'].second
             row['lock_time'] = row['lock_time'].second
-            mongo_models.MysqlSlowQueriesTimeLog.objects.create(**row)
+            models_mongo.MysqlSlowQueriesTimeLog.objects.create(**row)
