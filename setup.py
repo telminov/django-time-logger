@@ -4,13 +4,14 @@ from setuptools import setup
 
 setup(
     name='django-time-logger',
-    version='0.0.8',
+    version='0.0.10',
     description='Time logger for django',
     author='Telminov Sergey',
     url='https://github.com/telminov/django-time-logger',
     packages=[
         'time_logger',
         'time_logger/middleware',
+        'time_logger/management/',
         'time_logger/management/commands',
     ],
     include_package_data=True,
