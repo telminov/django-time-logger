@@ -23,4 +23,6 @@ class Command(BaseCommand):
                 'rows_sent': entry['rows_sent'],
                 'sql_text': ' ;'.join(entry['queries_list']),
             }
-            models_mongo.MysqlSlowQueriesTimeLog.objects.create(**data)
+
+            if not models_mongo.MysqlSlowQueriesTimeLog.objects.filter(**data).count():
+                models_mongo.MysqlSlowQueriesTimeLog.objects.create(**data)
