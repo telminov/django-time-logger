@@ -114,6 +114,9 @@ class MysqlBinLogParser(BaseLogParser):
 
         start_time, server_id, end_log_pos, thread_id, exec_time, error_code =\
             self._parse_line(_BIN_LOG_QUERY_STATS, line)
+        # mysql bug http://bugs.mysql.com/bug.php?id=52704
+        exec_time = 0 if float(exec_time) > 1000 else exec_time
+        start_time = datetime.datetime.strptime(start_time, "%y%m%d %H:%M:%S")
 
         # str: db
         line = self._get_next_line()
@@ -123,7 +126,7 @@ class MysqlBinLogParser(BaseLogParser):
             line = self._get_next_line()
 
         # str: timestamp
-        timestamp = self._parse_line(_BING_LOG_TIMESTAMP, line)[0]
+        timestamp = self._parse_timestamp(line)
 
         # str: query
         line = self._get_next_line()
@@ -143,7 +146,7 @@ class MysqlBinLogParser(BaseLogParser):
             'server_id': server_id,
             'end_log_pos': end_log_pos,
             'thread_id': thread_id,
-            'exec_time': exec_time,
+            'exec_time': float(exec_time),
             'error_code': error_code,
             'db': db,
             'timestamp': timestamp,
@@ -152,10 +155,15 @@ class MysqlBinLogParser(BaseLogParser):
 
         }
 
+    def _parse_timestamp(self, line):
+        info = self._parse_line(_BING_LOG_TIMESTAMP, line)
+        return datetime.datetime.fromtimestamp(float(info[0]))
+
 
 class MysqlSlowQueriesParser(BaseLogParser):
     def __init__(self, log_path):
         self._stream = open(log_path, 'r')
+        self._cached_line = None
 
         line = self._get_next_line()
         if line is not None and line.endswith('started with:'):
@@ -168,13 +176,17 @@ class MysqlSlowQueriesParser(BaseLogParser):
         #   3 headers
         # we do not need in all this stuff
         self._get_next_line()
-        self._get_next_line()
         line = self._get_next_line()
         return line
 
     def _parse_entry(self):
         entry = {}
-        line = self._get_next_line()
+        if not self._cached_line:
+            line = self._get_next_line()
+        else:
+            line = self._cached_line
+            self._cached_line = None
+
         if not line:
             return None
         if line.startswith('# Time:'):
@@ -190,8 +202,8 @@ class MysqlSlowQueriesParser(BaseLogParser):
 
         if line.startswith('# Query_time:'):
             query_time, lock_time, rows_sent, rows_examined = self._parse_statistics(line)
-            entry['query_time'] = decimal.Decimal(query_time)
-            entry['lock_time'] = decimal.Decimal(lock_time)
+            entry['query_time'] = float(query_time)
+            entry['lock_time'] = float(lock_time)
             entry['rows_sent'] = int(rows_sent)
             entry['rows_examined'] = int(rows_examined)
             line = self._get_next_line()
@@ -222,6 +234,7 @@ class MysqlSlowQueriesParser(BaseLogParser):
                 break
             query_string.append(line)
             line = self._get_next_line()
+            self._cached_line = line
         return query_string
 
 # usage example

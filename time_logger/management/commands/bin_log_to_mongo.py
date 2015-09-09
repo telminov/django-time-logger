@@ -10,6 +10,7 @@ from time_logger import models_mongo
 PATH_TO_BINLOGS = '/var/log/mysql/'
 PATH_TO_READABLE_BINLOGS = '/tmp/binlogs/'
 
+
 class Command(BaseCommand):
     help = 'Import mysql binlog from file to mongodb'
 
@@ -17,7 +18,6 @@ class Command(BaseCommand):
         parser.add_argument('--log_path', default=None)
 
     def handle(self, *args, **options):
-        new_binlog_file_paths = []
         parsed_log_names = models_mongo.ParsedLogsFiles.objects.values_list('file_name')
 
         log_path = options.get('log_path')
@@ -26,7 +26,8 @@ class Command(BaseCommand):
             if file_name in parsed_log_names:
                 raise Exception('file already parsed')
 
-            new_binlog_file_paths.append(log_path)
+            new_binlog_file_paths = _create_readable_binlog([file_name, ])
+
         else:
             new_binlog_file_names = [
                 name for name in os.listdir(PATH_TO_BINLOGS)
@@ -36,17 +37,7 @@ class Command(BaseCommand):
             # cutoff last log. Mysql writes binlogs in it
             new_binlog_file_names = sorted(new_binlog_file_names)[:-1]
 
-            # create dir for readable logs
-            if not os.path.exists(PATH_TO_READABLE_BINLOGS):
-                os.mkdir(PATH_TO_READABLE_BINLOGS)
-
-            # make binlogs readable
-            for file_name in new_binlog_file_names:
-                # command mysqlbinlog --verbose --base64-output=NEVER  mysql-bin.002491 > bin_logs.sql
-                rez = subprocess.call('mysqlbinlog --verbose %s%s > %s%s' %
-                                      (PATH_TO_BINLOGS, file_name, PATH_TO_READABLE_BINLOGS, file_name), shell=True)
-
-                new_binlog_file_paths.append('%s%s' % (PATH_TO_READABLE_BINLOGS, file_name))
+            new_binlog_file_paths = _create_readable_binlog(new_binlog_file_names)
 
         for log_path in new_binlog_file_paths:
             for entry in MysqlBinLogParser(log_path):
@@ -57,7 +48,22 @@ class Command(BaseCommand):
                     del entry['thread_id']
                     del entry['db']
 
-                    entry['timestamp'] = datetime.datetime.fromtimestamp(entry['timestamp'])
+                    entry['end_time'] = entry['start_time'] + datetime.timedelta(seconds=entry['exec_time'])
                     models_mongo.MysqlBinLogTimeLog.objects.create(**entry)
                     models_mongo.ParsedLogsFiles.objects.create(file_name=log_path.split('/')[-1])
 
+
+def _create_readable_binlog(new_binlog_file_names):
+    new_binlog_file_paths = []
+
+    # create dir for readable logs
+    if not os.path.exists(PATH_TO_READABLE_BINLOGS):
+        os.mkdir(PATH_TO_READABLE_BINLOGS)
+    # make binlogs readable
+    for file_name in new_binlog_file_names:
+        # command mysqlbinlog --verbose --base64-output=NEVER  mysql-bin.002491 > bin_logs.sql
+        subprocess.call('mysqlbinlog --verbose %s%s > %s%s' %
+                        (PATH_TO_BINLOGS, file_name, PATH_TO_READABLE_BINLOGS, file_name), shell=True)
+
+        new_binlog_file_paths.append('%s%s' % (PATH_TO_READABLE_BINLOGS, file_name))
+    return new_binlog_file_paths

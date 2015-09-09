@@ -28,6 +28,7 @@ class ViewTimeLog(mongoengine.Document):
 
 class MysqlSlowQueriesTimeLog(mongoengine.Document):
     start_time = mongoengine.DateTimeField()
+    end_time = mongoengine.DateTimeField()
     user_host = mongoengine.StringField()
     query_time = mongoengine.IntField()
     lock_time = mongoengine.IntField()
@@ -67,6 +68,7 @@ class MysqlBinLogTimeLog(mongoengine.Document):
     ]
 
     start_time = mongoengine.DateTimeField()
+    end_time = mongoengine.DateTimeField()
     exec_time = mongoengine.IntField()
     timestamp = mongoengine.DateTimeField()
     error_code = mongoengine.IntField()
