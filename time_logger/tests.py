@@ -5,7 +5,7 @@ from djutils.testrunner import TearDownTestCaseMixin
 import mock
 from django.test import TestCase
 from django.test.client import RequestFactory
-import mongo_models
+import models_mongo
 from middleware.view_logger import ViewTimeLogger as ViewTimeLoggerMiddleware
 import views
 
@@ -14,7 +14,7 @@ class ViewsTestCase(TestCase):
         self.url = '/views_log/'
 
     def generate_data(self):
-        mongo_models.ViewTimeLog.objects.create(
+        models_mongo.ViewTimeLog.objects.create(
             duration=2,
             view_func_path='time_logger.views.test_view',
             view_args=[1, 2, 3],
@@ -39,7 +39,7 @@ class ViewsTestCase(TestCase):
 
     def test_filter_view_func_path(self):
         self.generate_data()
-        log = mongo_models.ViewTimeLog.objects.all()[0]
+        log = models_mongo.ViewTimeLog.objects.all()[0]
 
         params = {'view_func_path': log.view_func_path}
         self._assert_exists(params)
@@ -49,7 +49,7 @@ class ViewsTestCase(TestCase):
 
     def test_filter_dc(self):
         self.generate_data()
-        log = mongo_models.ViewTimeLog.objects.all()[0]
+        log = models_mongo.ViewTimeLog.objects.all()[0]
 
         dc_iso = log.dc.isoformat(sep=' ')[:19]
         params = {'min_dc': dc_iso, 'max_dc': dc_iso}
@@ -139,7 +139,7 @@ class LogViewFuncViewMiddlewareTestCase(TestCase, TearDownTestCaseMixin):
         with self.settings(LOG_VIEW_TIME=None):
             self.middleware._log_view(self.request)
             self.assertFalse(
-                mongo_models.ViewTimeLog.objects.all().count()
+                models_mongo.ViewTimeLog.objects.all().count()
             )
 
     def test_no_logging_with_small_duration(self):
@@ -148,7 +148,7 @@ class LogViewFuncViewMiddlewareTestCase(TestCase, TearDownTestCaseMixin):
 
         self.middleware._log_view(self.request)
         self.assertFalse(
-            mongo_models.ViewTimeLog.objects.all().count()
+            models_mongo.ViewTimeLog.objects.all().count()
         )
 
     def test_no_logging_with_big_duration(self):
@@ -158,10 +158,10 @@ class LogViewFuncViewMiddlewareTestCase(TestCase, TearDownTestCaseMixin):
 
         self.middleware._log_view(self.request)
         self.assertTrue(
-            mongo_models.ViewTimeLog.objects.all().count()
+            models_mongo.ViewTimeLog.objects.all().count()
         )
 
-        log = mongo_models.ViewTimeLog.objects.get()
+        log = models_mongo.ViewTimeLog.objects.get()
         self.assertEqual(log.duration, big_duration)
         self.assertEqual(log.view_func_path, 'time_logger.views.ViewsLog')
         self.assertEqual(log.view_args, self.request.time_logger['view_args'])

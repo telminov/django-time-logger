@@ -44,12 +44,6 @@ class MysqlSlowQueriesTimeLog(mongoengine.Document):
         'db_alias': getattr(settings, 'LOG_VIEW_TIME_DB_ALIAS', 'default')
     }
 
-    # @classmethod
-    # def create_entry(cls, entry):
-    #     # in case we would modify entry dict
-    #     entry_copy = deepcopy(entry)
-    #     return cls.objects.create(**entry_copy)
-
 
 class MysqlBinLogTimeLog(mongoengine.Document):
     UPDATE_QUERY_TYPE = 'UPDATE'
@@ -74,7 +68,7 @@ class MysqlBinLogTimeLog(mongoengine.Document):
 
     start_time = mongoengine.DateTimeField()
     exec_time = mongoengine.IntField()
-    timestamp = mongoengine.StringField()
+    timestamp = mongoengine.DateTimeField()
     error_code = mongoengine.IntField()
     query = mongoengine.StringField()
     query_type = mongoengine.StringField(choices=QUERY_TYPE_CHOICES)

@@ -3,7 +3,7 @@ import datetime
 from django.conf import settings
 import inspect
 
-from time_logger import mongo_models
+from time_logger import models_mongo
 
 class ViewTimeLogger(object):
 
@@ -43,7 +43,7 @@ class ViewTimeLogger(object):
             view_func_module = inspect.getmodule(request.time_logger['view_func'])
             view_func_path = '%s.%s' % (view_func_module.__name__, request.time_logger['view_func'].__name__)
 
-            mongo_models.ViewTimeLog.objects.create(
+            models_mongo.ViewTimeLog.objects.create(
                 duration=duration.seconds,
                 view_func_path=view_func_path,
                 view_args=request.time_logger['view_args'],

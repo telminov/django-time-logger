@@ -76,7 +76,6 @@ class BaseLogParser(object):
 
 class MysqlBinLogParser(BaseLogParser):
     def __init__(self, log_path):
-        # TODO обкатать парсер на одном файле, затем натравливать только на новые логи
         self._stream = open(log_path, 'r')
 
         # line which contains query info about new expression

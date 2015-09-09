@@ -2,7 +2,7 @@
 
 from django.core.management.base import BaseCommand
 from time_logger.mysql_logs_parser_from_file import MysqlSlowQueriesParser
-from time_logger import mongo_models
+from time_logger import models_mongo
 
 
 class Command(BaseCommand):
@@ -21,4 +21,4 @@ class Command(BaseCommand):
                 'rows_sent': entry['rows_sent'],
                 'sql_text': ' ;'.join(entry['queries_list']),
             }
-            mongo_models.MysqlSlowQueriesTimeLog.objects.create(**data)
+            models_mongo.MysqlSlowQueriesTimeLog.objects.create(**data)
