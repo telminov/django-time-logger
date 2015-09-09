@@ -25,6 +25,26 @@ class ViewTimeLog(mongoengine.Document):
             self.dc = datetime.datetime.now()
         return super(ViewTimeLog, self).save(*args, **kwargs)
 
+    def get_end_time(self):
+        return self.dc + datetime.timedelta(seconds=self.duration)
+
+    def get_parallel_slow_queries(self):
+        start_dt = self.dc
+        end_dt = self.get_end_time()
+        slow_queries = MysqlSlowQueriesTimeLog.objects.filter(
+            start_time__gte=start_dt,
+            start_time__lte=end_dt,
+        )
+        return slow_queries
+
+    def get_parallel_modify_queries(self):
+        start_dt = self.dc
+        end_dt = self.get_end_time()
+        modify_queries = MysqlBinLogTimeLog.objects.filter(
+            start_time__gte=start_dt,
+            start_time__lte=end_dt,
+        )
+        return modify_queries
 
 class MysqlSlowQueriesTimeLog(mongoengine.Document):
     start_time = mongoengine.DateTimeField()
