@@ -80,6 +80,7 @@ class MysqlBinLogTimeLog(mongoengine.Document):
         'db_alias': getattr(settings, 'LOG_VIEW_TIME_DB_ALIAS', 'default')
     }
 
+
 class ParsedLogsFiles(mongoengine.Document):
     file_name = mongoengine.StringField(verbose_name='file_name')
 
