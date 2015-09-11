@@ -50,7 +50,7 @@ class Command(BaseCommand):
 
                     entry['end_time'] = entry['start_time'] + datetime.timedelta(seconds=entry['exec_time'])
                     models_mongo.MysqlBinLogTimeLog.objects.create(**entry)
-                    models_mongo.ParsedLogsFiles.objects.create(file_name=log_path.split('/')[-1])
+            models_mongo.ParsedLogsFiles.objects.create(file_name=log_path.split('/')[-1])
 
 
 def _create_readable_binlog(new_binlog_file_names):
