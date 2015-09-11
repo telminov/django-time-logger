@@ -1,4 +1,5 @@
 # coding: utf-8
+import datetime
 
 from django.core.management.base import BaseCommand
 from django.db import connection
@@ -27,5 +28,6 @@ class Command(BaseCommand):
         # write results into mongo
         for row in results:
             row['query_time'] = row['query_time'].second
+            row['end_time'] = row['start_time'] + datetime.timedelta(seconds=row['query_time'])
             row['lock_time'] = row['lock_time'].second
             models_mongo.MysqlSlowQueriesTimeLog.objects.create(**row)

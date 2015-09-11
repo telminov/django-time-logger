@@ -48,6 +48,7 @@ class ViewTimeLog(mongoengine.Document):
 
 class MysqlSlowQueriesTimeLog(mongoengine.Document):
     start_time = mongoengine.DateTimeField()
+    end_time = mongoengine.DateTimeField()
     user_host = mongoengine.StringField()
     query_time = mongoengine.IntField()
     lock_time = mongoengine.IntField()
@@ -87,6 +88,7 @@ class MysqlBinLogTimeLog(mongoengine.Document):
     ]
 
     start_time = mongoengine.DateTimeField()
+    end_time = mongoengine.DateTimeField()
     exec_time = mongoengine.IntField()
     timestamp = mongoengine.DateTimeField()
     error_code = mongoengine.IntField()
@@ -97,6 +99,7 @@ class MysqlBinLogTimeLog(mongoengine.Document):
         'indexes': ['exec_time', 'query_type'],
         'db_alias': getattr(settings, 'LOG_VIEW_TIME_DB_ALIAS', 'default')
     }
+
 
 class ParsedLogsFiles(mongoengine.Document):
     file_name = mongoengine.StringField(verbose_name='file_name')
