@@ -9,6 +9,7 @@ import models_mongo
 from middleware.view_logger import ViewTimeLogger as ViewTimeLoggerMiddleware
 import views
 
+
 class ViewsTestCase(TestCase):
     def setUp(self):
         self.url = '/views_log/'
@@ -169,4 +170,3 @@ class LogViewFuncViewMiddlewareTestCase(TestCase, TearDownTestCaseMixin):
         self.assertEqual(log.request_get, {})
         self.assertEqual(log.request_post, {})
         self.assertAlmostEqual(log.dc, datetime.datetime.now(), delta=datetime.timedelta(seconds=1))
-

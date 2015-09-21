@@ -15,3 +15,7 @@ def runtests():
     test_runner = TestRunner(verbosity=1, interactive=True)
     failures = test_runner.run_tests(['time_logger'])
     sys.exit(bool(failures))
+
+
+if __name__ == "__main__":
+    runtests()
