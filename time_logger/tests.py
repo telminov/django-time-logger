@@ -1,3 +1,4 @@
+import bson.objectid
 import datetime
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -5,12 +6,13 @@ from djutils.testrunner import TearDownTestCaseMixin
 import mock
 from django.test import TestCase
 from django.test.client import RequestFactory
+import mongoengine
 import models_mongo
 from middleware.view_logger import ViewTimeLogger as ViewTimeLoggerMiddleware
 import views
 
 
-class ViewsTestCase(TestCase):
+class ViewsLogTestCase(TestCase):
     def setUp(self):
         self.url = '/views_log/'
 
@@ -71,6 +73,23 @@ class ViewsTestCase(TestCase):
         self.assertFalse(
             len(response.context['page_obj'].object_list)
         )
+
+
+class ViewsLogDetail(TestCase):
+    def test_page(self):
+        log = models_mongo.ViewTimeLog.objects.create(
+            duration=2,
+            view_func_path='time_logger.views.test_view',
+            view_args=[1, 2, 3],
+            view_kwargs={'a': 1, 'b': 2, 'c': 3},
+            username='tester',
+            request_get={'q': 'test query'},
+            request_post={},
+        )
+
+        response = self.client.get('/views_log/%s/' % log.pk)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['object'], log)
 
 
 class ViewMiddlewareTestCase(TestCase, TearDownTestCaseMixin):

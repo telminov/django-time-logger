@@ -9,6 +9,7 @@ sys.path.insert(0, test_dir)
 from django.test.utils import get_runner
 from django.conf import settings
 
+
 def runtests():
     django.setup()
     TestRunner = get_runner(settings)
