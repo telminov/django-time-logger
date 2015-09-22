@@ -1,11 +1,13 @@
 import mock
+from mock import sentinel
 import datetime
 from django.conf import settings
 from django.contrib.auth.models import User
 from djutils.testrunner import TearDownTestCaseMixin
 from django.test import TestCase
 from django.test.client import RequestFactory
-from mysql_logs_parser_from_file import BaseLogParser, LogParserError
+from mysql_logs_parser_from_file import BaseLogParser, LogParserError, MysqlBinLogParser, BIN_LOG_END, _BIN_LOG_DB, \
+    _BIN_LOG_QUERY_STATS, _BING_LOG_TIMESTAMP
 import models_mongo
 from middleware.view_logger import ViewTimeLogger as ViewTimeLoggerMiddleware
 import views
@@ -387,7 +389,7 @@ class BaseLogParserTestCase(TestCase):
         result = BaseLogParser._parse_line(mocked_regex, line)
         self.assertTrue(mocked_regex.match.called)
         self.assertTrue(mocked_regex.match.return_value.groups.called)
-        
+
     def test_parse_headers(self):
         parser = BaseLogParser()
         self.assertRaises(NotImplementedError, parser._parse_headers, '')
@@ -395,4 +397,149 @@ class BaseLogParserTestCase(TestCase):
     def test_parse_entry(self):
         parser = BaseLogParser()
         self.assertRaises(NotImplementedError, parser._parse_entry)
+
+
+class MysqlBinLogParserTestCase(TestCase):
+    @mock.patch.object(MysqlBinLogParser, '_parse_headers')
+    @mock.patch.object(MysqlBinLogParser, '_get_next_line')
+    @mock.patch('__builtin__.open')
+    def test__init__(self, open_mock, _get_next_line_mock, _parse_headers_mock):
+        _get_next_line_mock.return_value = None
+        MysqlBinLogParser('test_file')
+        self.assertTrue(open_mock.called)
+        self.assertTrue(_get_next_line_mock.called)
+        self.assertFalse(_parse_headers_mock.called)
+
+        open_mock.reset_mock()
+        _get_next_line_mock.reset_mock()
+        _get_next_line_mock.return_value = 'test_line'
+        MysqlBinLogParser('test_file')
+        self.assertTrue(open_mock.called)
+        self.assertTrue(_get_next_line_mock.called)
+        _parse_headers_mock.assert_called_with(_get_next_line_mock.return_value)
+
+    @mock.patch.object(MysqlBinLogParser, '_parse_line')
+    @mock.patch.object(MysqlBinLogParser, '_get_next_line')
+    @mock.patch.object(MysqlBinLogParser, '__init__')
+    def test_parse_headers(self, __init__mock, _get_next_line_mock, _parse_line_mock):
+        query_line = '#150822 13:01:45 server id 192168352  end_log_pos 519   Query   thread_id=3552  exec_time=0 ' \
+                     'error_code=0'
+
+        # return None because there is no line 'BEGIN'
+        __init__mock.return_value = None
+        parser = MysqlBinLogParser('test_file')
+        parser._cached_line = None
+        _parse_line_mock.side_effect = ['DELIMITER', ]
+        _get_next_line_mock.side_effect = [
+            'some_line',
+            'some_line',
+            query_line,
+            None,
+        ]
+        self.assertIsNone(parser._parse_headers('DELIMITER;'))
+        self.assertIsNone(parser._cached_line)
+
+        _parse_line_mock.reset_mock()
+        _parse_line_mock.side_effect = ['DELIMITER', ]
+        _get_next_line_mock.reset_mock()
+        # return None because there is no line contains QUERY
+        _get_next_line_mock.side_effect = [
+            'some_line',
+            'some_line',
+            'BEGIN',
+            None,
+        ]
+        self.assertIsNone(parser._parse_headers('DELIMITER;'))
+        self.assertIsNone(parser._cached_line)
+
+        _parse_line_mock.reset_mock()
+        _parse_line_mock.side_effect = ['DELIMITER', ]
+        _get_next_line_mock.reset_mock()
+        # return None because there is no line contains QUERY
+        _get_next_line_mock.side_effect = [
+            'some_line',
+            'some_line',
+            'BEGIN',
+            query_line,
+        ]
+        self.assertIsNone(parser._parse_headers('DELIMITER;'))
+        self.assertEqual(parser._cached_line, query_line)
+
+    @mock.patch.object(MysqlBinLogParser, '_parse_timestamp')
+    @mock.patch.object(MysqlBinLogParser, '_parse_line')
+    @mock.patch.object(MysqlBinLogParser, '_get_next_line')
+    @mock.patch.object(MysqlBinLogParser, '__init__')
+    def test_parse_entry(self, __init__mock, _get_next_line_mock, _parse_line_mock, _parse_timestamp_mock):
+        start_time, server_id, end_log_pos, thread_id, exec_time, error_code = \
+            '150822 13:01:45', '192168352', '519', 3552, 0, 0
+        query_line = '#{0} server id {1}  end_log_pos {2}   Query   thread_id={3}  exec_time={4} ' \
+                     'error_code={5}'.format(start_time, server_id, end_log_pos, thread_id, exec_time, error_code)
+
+        __init__mock.return_value = None
+
+        parser = MysqlBinLogParser('')
+        parser._cached_line = None
+
+        # check None line
+        _get_next_line_mock.return_value = None
+        self.assertIsNone(parser._parse_entry())
+
+        parser._cached_line = query_line
+        query_type = 'INSERT'
+        query = 'blablabla'
+        db = 'test'
+        db_line = 'use {}'.format(db)
+        _get_next_line_mock.side_effect = [
+            db_line,
+            'SET TIMESTAMP=1440237705/*!*/;',
+            '{} {}'.format(query_type, query),
+            BIN_LOG_END,
+        ]
+
+        parse_line_side_effects = [(start_time, server_id, end_log_pos, thread_id, exec_time, error_code),
+                                   [db, ], ]
+        side_effect = lambda *args, **kwargs: parse_line_side_effects.pop(0)
+        _parse_line_mock.side_effect = side_effect
+        timestamp = 'test_timestamp'
+        _parse_timestamp_mock.return_value = timestamp
+
+        # parse entry
+        entry = parser._parse_entry()
+        self.assertEqual(entry['start_time'], datetime.datetime.strptime(start_time, "%y%m%d %H:%M:%S"))
+        self.assertEqual(entry['server_id'], server_id)
+        self.assertEqual(entry['end_log_pos'], end_log_pos)
+        self.assertEqual(entry['thread_id'], thread_id)
+        self.assertEqual(entry['error_code'], error_code)
+        self.assertEqual(entry['db'], db)
+        self.assertEqual(entry['timestamp'], timestamp)
+        self.assertEqual(entry['query'], '{} {}'.format(query_type, query))
+        self.assertEqual(entry['query_type'], query_type)
+        self.assertTrue(_parse_timestamp_mock.called)
+        self.assertEqual(_get_next_line_mock.call_count, 5)
+        self.assertEqual(parser._cached_line, BIN_LOG_END)
+        # check parse_line args
+        expected = [
+            mock.call(
+                _BIN_LOG_QUERY_STATS,
+                '#{0} server id {1}  end_log_pos {2}   Query   thread_id={3}  exec_time={4} error_code={5}'.
+                    format(start_time, server_id, end_log_pos, thread_id, exec_time, error_code)
+            ),
+            mock.call(_BIN_LOG_DB, db_line)
+        ]
+        self.assertEqual(_parse_line_mock.call_args_list, expected)
+        # end of log file
+        self.assertIsNone(parser._parse_entry())
+
+    @mock.patch.object(MysqlBinLogParser, '_parse_line')
+    @mock.patch.object(MysqlBinLogParser, '__init__')
+    def test_parse_timestamp(self, __init__mock, _parse_line_mock):
+        __init__mock.return_value = None
+        parser = MysqlBinLogParser('')
+        line = 'SET TIMESTAMP=1440237705/*!*/;'
+        _parse_line_mock.return_value = ['1440237705', ]
+        timestamp = parser._parse_timestamp(line)
+        self.assertEqual(
+            timestamp,
+            datetime.datetime.fromtimestamp(float(_parse_line_mock.return_value[0])))
+        _parse_line_mock.assert_called_with(_BING_LOG_TIMESTAMP, line)
 

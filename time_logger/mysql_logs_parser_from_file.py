@@ -105,6 +105,8 @@ class MysqlBinLogParser(BaseLogParser):
     def _parse_entry(self):
         # this line must contains Query stats
         if self._cached_line:
+            if self._cached_line == BIN_LOG_END:
+                return None
             line = self._cached_line
         else:
             line = self._get_next_line()
@@ -136,8 +138,9 @@ class MysqlBinLogParser(BaseLogParser):
         # skip line to another Query command
         while not 'Query' in line:
             line = self._get_next_line()
+            # catch end of log
             if line == BIN_LOG_END:
-                return None
+                break
         # cached new query info line
         self._cached_line = line
 
