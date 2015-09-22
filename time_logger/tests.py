@@ -1,12 +1,11 @@
-import bson.objectid
+import mock
 import datetime
 from django.conf import settings
 from django.contrib.auth.models import User
 from djutils.testrunner import TearDownTestCaseMixin
-import mock
 from django.test import TestCase
 from django.test.client import RequestFactory
-import mongoengine
+from mysql_logs_parser_from_file import BaseLogParser, LogParserError
 import models_mongo
 from middleware.view_logger import ViewTimeLogger as ViewTimeLoggerMiddleware
 import views
@@ -341,3 +340,59 @@ class LogViewFuncViewMiddlewareTestCase(TestCase, TearDownTestCaseMixin):
         self.assertEqual(log.request_get, {})
         self.assertEqual(log.request_post, {})
         self.assertAlmostEqual(log.dc, datetime.datetime.now(), delta=datetime.timedelta(seconds=1))
+
+
+class BaseLogParserTestCase(TestCase):
+    def test_iter(self):
+        parser = BaseLogParser()
+        self.assertEqual(parser.__iter__(), parser)
+
+    @mock.patch.object(BaseLogParser, '_parse_entry')
+    def test_next(self, mocked_parse_entry):
+        mocked_parse_entry.return_value = None
+        parser = BaseLogParser()
+        self.assertRaises(StopIteration, parser.next)
+        self.assertTrue(mocked_parse_entry.called)
+
+        mocked_parse_entry.reset_mock()
+        mocked_parse_entry.return_value = 'test'
+        self.assertEqual(parser.next(), mocked_parse_entry.return_value)
+
+    def test_get_next_line(self):
+        parser = BaseLogParser()
+        parser._stream = mock.Mock()
+        parser._stream.readline = mock.Mock(return_value=None)
+
+        self.assertIsNone(parser._get_next_line())
+        self.assertTrue(parser._stream.readline.called)
+
+        parser._stream.readline.reset_mock()
+        parser.delimiter = 'DELIMITER'
+        line = 'test_line'
+        parser._stream.readline.return_value = '{}{}\r\n'.format(line, parser.delimiter)
+        self.assertEqual(parser._get_next_line(), line)
+        self.assertTrue(parser._stream.readline.called)
+
+    def test_parse_line(self):
+        mocked_regex = mock.Mock()
+        mocked_regex.match = mock.Mock(return_value=None)
+        line = 'test_line'
+        self.assertRaises(
+            LogParserError,
+            BaseLogParser._parse_line, mocked_regex, line
+        )
+
+        mocked_regex.match.reset_mock()
+        mocked_regex.match.return_value = mock.Mock()
+        result = BaseLogParser._parse_line(mocked_regex, line)
+        self.assertTrue(mocked_regex.match.called)
+        self.assertTrue(mocked_regex.match.return_value.groups.called)
+        
+    def test_parse_headers(self):
+        parser = BaseLogParser()
+        self.assertRaises(NotImplementedError, parser._parse_headers, '')
+
+    def test_parse_entry(self):
+        parser = BaseLogParser()
+        self.assertRaises(NotImplementedError, parser._parse_entry)
+
