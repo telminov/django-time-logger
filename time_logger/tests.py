@@ -101,32 +101,32 @@ class SlowQueriesLogTestCase(TestCase):
         start_time = now - datetime.timedelta(seconds=30)
         end_time = now + datetime.timedelta(seconds=10)
         log1 = models_mongo.MysqlSlowQueriesTimeLog.objects.create(
-            start_time = start_time,
-            end_time = end_time,
-            user_host = 'test_host',
-            query_time = (end_time - start_time).seconds,
-            lock_time = 20,
-            rows_sent = 5,
-            rows_examined = 3,
-            sql_text = 'select * from test',
-            db = 'test_mis_mm',
-            last_insert_id = 1,
-            insert_id = 2,
-            server_id = 1,
+            start_time=start_time,
+            end_time=end_time,
+            user_host='test_host',
+            query_time=(end_time - start_time).seconds,
+            lock_time=20,
+            rows_sent=5,
+            rows_examined=3,
+            sql_text='select * from test',
+            db='test_mis_mm',
+            last_insert_id=1,
+            insert_id=2,
+            server_id=1,
         )
         log2 = models_mongo.MysqlSlowQueriesTimeLog.objects.create(
-            start_time = now,
-            end_time = now,
-            user_host = 'test_host',
-            query_time = 0,
-            lock_time = 20,
-            rows_sent = 5,
-            rows_examined = 3,
-            sql_text = 'select * from test',
-            db = 'test_mis_mm',
-            last_insert_id = 1,
-            insert_id = 2,
-            server_id = 1,
+            start_time=now,
+            end_time=now,
+            user_host='test_host',
+            query_time=0,
+            lock_time=20,
+            rows_sent=5,
+            rows_examined=3,
+            sql_text='select * from test',
+            db='test_mis_mm',
+            last_insert_id=1,
+            insert_id=2,
+            server_id=1,
         )
         return log1, log2
 
@@ -143,6 +143,78 @@ class SlowQueriesLogTestCase(TestCase):
         self.assertNotIn(log2, response.context['page_obj'].object_list)
 
         response = self.client.get(self.url, {'min_query_time': log2.query_time})
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context['form'].errors)
+        self.assertIn(log1, response.context['page_obj'].object_list)
+        self.assertIn(log2, response.context['page_obj'].object_list)
+
+    def test_filter_min_dc(self):
+        log1, log2 = self.generate_data()
+        response = self.client.get(self.url, {'min_dc': log1.start_time})
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context['form'].errors)
+        self.assertIn(log1, response.context['page_obj'].object_list)
+        self.assertIn(log2, response.context['page_obj'].object_list)
+
+        response = self.client.get(self.url, {'min_dc': log2.start_time})
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context['form'].errors)
+        self.assertNotIn(log1, response.context['page_obj'].object_list)
+        self.assertIn(log2, response.context['page_obj'].object_list)
+
+    def test_filter_max_dc(self):
+        log1, log2 = self.generate_data()
+        response = self.client.get(self.url, {'max_dc': log1.start_time})
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context['form'].errors)
+        self.assertIn(log1, response.context['page_obj'].object_list)
+        self.assertIn(log2, response.context['page_obj'].object_list)
+
+
+class BinLogTestCase(TestCase):
+    def setUp(self):
+        self.url = '/bin_log/'
+
+    def generate_data(self):
+        now = datetime.datetime.now()
+        start_time = now - datetime.timedelta(seconds=30)
+        end_time = now + datetime.timedelta(seconds=10)
+
+        log1 = models_mongo.MysqlBinLogTimeLog.objects.create(
+            start_time=start_time,
+            end_time=end_time,
+            exec_time=(start_time - end_time).seconds,
+            timestamp=start_time,
+            error_code=0,
+            query='insert blablabla',
+            query_type=models_mongo.MysqlBinLogTimeLog.INSERT_QUERY_TYPE,
+        )
+
+        log2 = models_mongo.MysqlBinLogTimeLog.objects.create(
+            start_time=now,
+            end_time=now,
+            exec_time=0,
+            timestamp=start_time,
+            error_code=0,
+            query='insert blablabla',
+            query_type=models_mongo.MysqlBinLogTimeLog.INSERT_QUERY_TYPE,
+        )
+
+        return log1, log2
+
+    def test_without_params(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+
+    def test_filter_min_query_time(self):
+        log1, log2 = self.generate_data()
+        response = self.client.get(self.url, {'min_exec_time': log1.exec_time})
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context['form'].errors)
+        self.assertIn(log1, response.context['page_obj'].object_list)
+        self.assertNotIn(log2, response.context['page_obj'].object_list)
+
+        response = self.client.get(self.url, {'min_exec_time': log2.exec_time})
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.context['form'].errors)
         self.assertIn(log1, response.context['page_obj'].object_list)
@@ -215,6 +287,7 @@ class ViewMiddlewareTestCase(TestCase, TearDownTestCaseMixin):
     def test_process_exception(self, log_view_mock):
         self.middleware.process_exception(self.request, None)
         self.assertTrue(log_view_mock.called)
+
 
 class LogViewFuncViewMiddlewareTestCase(TestCase, TearDownTestCaseMixin):
     def setUp(self):
