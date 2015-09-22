@@ -7,7 +7,7 @@ from djutils.testrunner import TearDownTestCaseMixin
 from django.test import TestCase
 from django.test.client import RequestFactory
 from mysql_logs_parser_from_file import BaseLogParser, LogParserError, MysqlBinLogParser, BIN_LOG_END, _BIN_LOG_DB, \
-    _BIN_LOG_QUERY_STATS, _BING_LOG_TIMESTAMP, MysqlSlowQueriesParser
+    _BIN_LOG_QUERY_STATS, _BING_LOG_TIMESTAMP, MysqlSlowQueriesParser, _SLOW_TIMESTAMP, _SLOW_USERHOST, _SLOW_STATS
 import models_mongo
 from middleware.view_logger import ViewTimeLogger as ViewTimeLoggerMiddleware
 import views
@@ -590,40 +590,87 @@ class MysqlSlowQueriesParserTestCase(TestCase):
     @mock.patch.object(MysqlSlowQueriesParser, '__init__')
     def test_parse_entry(self, __init__mock, _get_next_line_mock, _parse_time_mock,
                          _parse_connection_info_mock, _parse_statistics_mock, _parse_queries_mock):
-        self.cached_line = None
         __init__mock.return_value = None
         _get_next_line_mock.return_value = None
         parser = MysqlSlowQueriesParser('')
+        parser._cached_line = None
         self.assertIsNone(parser._parse_entry())
 
+        _get_next_line_mock.reset_mock()
         private_user, unprivate_user, host, ip = 'test', 'test2', 'localhost', '127.0.0.1'
         query_time, lock_time, rows_sent, rows_examined = '30', '1', '3', '131758'
         queries = 'use test; set timestamp=123; select blablabla;'
-        _get_next_line_mock.side_effect = [
-            '# User@Host: {1}[{2}] @ {3} {4}'.format(private_user, unprivate_user, host, ip),
-            '# Query_time: {1}  Lock_time: {2} Rows_sent: {3}  Rows_examined: {4}'.
+        get_next_line_side_effect = [
+            '# User@Host: {0}[{1}] @ {2} {3}'.format(private_user, unprivate_user, host, ip),
+            '# Query_time: {0}  Lock_time: {1} Rows_sent: {2}  Rows_examined: {3}'.
                 format(query_time, lock_time, rows_sent, rows_examined),
             queries,
-
         ]
+        _get_next_line_mock.side_effect = get_next_line_side_effect
 
         timestamp = '150825  3:31:06'
-        self.cached_line = '# Time: {}'.format(timestamp)
+        parser._cached_line = '# Time: {}'.format(timestamp)
         _parse_time_mock.return_value = datetime.datetime.strptime(timestamp, "%y%m%d %H:%M:%S")
         _parse_connection_info_mock.return_value = (private_user, unprivate_user, host, ip)
         _parse_statistics_mock.return_value = (query_time, lock_time, rows_sent, rows_examined)
         _parse_queries_mock.return_value = queries
 
         entry = parser._parse_entry()
+        self.assertTrue(__init__mock.called)
+        self.assertEqual(_get_next_line_mock.call_count, 3)
+        _parse_time_mock.assert_called_with('# Time: {}'.format(timestamp))
+        _parse_connection_info_mock.assert_called_with(get_next_line_side_effect[0])
+        _parse_statistics_mock.assert_called_with(get_next_line_side_effect[1])
+        _parse_queries_mock.assert_called_with(get_next_line_side_effect[2])
+        self.assertEqual(entry['start_time'], _parse_time_mock.return_value)
+        self.assertEqual(entry['user'], private_user)
+        self.assertEqual(entry['host'], host)
+        self.assertEqual(entry['query_time'], float(query_time))
+        self.assertEqual(entry['lock_time'], float(lock_time))
+        self.assertEqual(entry['rows_sent'], float(rows_sent))
+        self.assertEqual(entry['rows_examined'], int(rows_examined))
+        self.assertEqual(entry['queries_list'], queries)
 
-    def test_parse_time(self):
-        pass
+    @mock.patch.object(MysqlSlowQueriesParser, '__init__')
+    def test_parse_time(self, __init__mock):
+        __init__mock.return_value = None
+        parser = MysqlSlowQueriesParser('')
 
-    def test_parse_connection_info(self):
-        pass
+        time_str = '150825  3:31:06'
+        line = '# Time: {}'.format(time_str)
+        result = parser._parse_time(line)
+        self.assertEqual(result, datetime.datetime.strptime(time_str, "%y%m%d %H:%M:%S"))
 
-    def test_parse_statistics(self):
-        pass
+    @mock.patch.object(MysqlSlowQueriesParser, '__init__')
+    def test_parse_connection_info(self, __init__mock):
+        __init__mock.return_value = None
+        parser = MysqlSlowQueriesParser('')
 
-    def test_parse_queries(self):
-        pass
+        private_user, unprivate_user, host, ip = 'test', 'test2', 'localhost', '127.0.0.1'
+        line = '# User@Host: {0}[{1}] @ {2} [{3}]'.format(private_user, unprivate_user, host, ip)
+        result = parser._parse_connection_info(line)
+        self.assertEqual(result, (private_user, unprivate_user, host, ip))
+
+    @mock.patch.object(MysqlSlowQueriesParser, '__init__')
+    def test_parse_statistics(self, __init__mock):
+        __init__mock.return_value = None
+        parser = MysqlSlowQueriesParser('')
+
+        query_time, lock_time, rows_sent, rows_examined = '30.3', '1.2', '3', '131758'
+        line = '# Query_time: {0}  Lock_time: {1} Rows_sent: {2}  Rows_examined: {3}'.\
+            format(query_time, lock_time, rows_sent, rows_examined)
+        result = parser._parse_statistics(line)
+        self.assertEqual(result, (query_time, lock_time, rows_sent, rows_examined))
+
+    @mock.patch.object(MysqlSlowQueriesParser, '_get_next_line')
+    @mock.patch.object(MysqlSlowQueriesParser, '__init__')
+    def test_parse_queries(self, __init__mock, _get_next_line_mock):
+        __init__mock.return_value = None
+        _get_next_line_mock.return_value = '# Time: blablabla'
+        parser = MysqlSlowQueriesParser('')
+
+        line = 'use test; set timestamp=123; select blablabla;'
+        result = parser._parse_queries(line)
+        self.assertEqual(parser._cached_line, _get_next_line_mock.return_value)
+        self.assertTrue(_get_next_line_mock.called)
+        self.assertEqual(result, [line, ])
