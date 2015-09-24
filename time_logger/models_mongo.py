@@ -46,6 +46,7 @@ class ViewTimeLog(mongoengine.Document):
         )
         return modify_queries
 
+
 class MysqlSlowQueriesTimeLog(mongoengine.Document):
     start_time = mongoengine.DateTimeField()
     end_time = mongoengine.DateTimeField()

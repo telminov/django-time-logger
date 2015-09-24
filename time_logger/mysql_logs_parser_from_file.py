@@ -3,7 +3,6 @@ import re
 import datetime
 import decimal
 
-# not shure in names. So in my logs only Query and Intvar
 NOT_PARSING_EVENTS = ['Xid', 'User_var', 'Rand', 'Intvar']
 
 _DATE_PAT = r"\d{6}\s+\d{1,2}:\d{2}:\d{2}"
@@ -35,6 +34,7 @@ _BIN_LOG_QUERY_STATS = re.compile(r"#(" + _DATE_PAT + ")\s+"
                             r"error_code=(\d+)")
 _BIN_LOG_DB = re.compile(r"use `(.+)`")
 _BING_LOG_TIMESTAMP = re.compile(r"SET TIMESTAMP=(\d+)")
+
 
 class LogParserError(Exception):
     pass
@@ -105,6 +105,8 @@ class MysqlBinLogParser(BaseLogParser):
     def _parse_entry(self):
         # this line must contains Query stats
         if self._cached_line:
+            if self._cached_line == BIN_LOG_END:
+                return None
             line = self._cached_line
         else:
             line = self._get_next_line()
@@ -136,8 +138,9 @@ class MysqlBinLogParser(BaseLogParser):
         # skip line to another Query command
         while not 'Query' in line:
             line = self._get_next_line()
+            # catch end of log
             if line == BIN_LOG_END:
-                return None
+                break
         # cached new query info line
         self._cached_line = line
 
