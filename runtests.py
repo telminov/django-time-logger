@@ -9,9 +9,14 @@ sys.path.insert(0, test_dir)
 from django.test.utils import get_runner
 from django.conf import settings
 
+
 def runtests():
     django.setup()
     TestRunner = get_runner(settings)
     test_runner = TestRunner(verbosity=1, interactive=True)
     failures = test_runner.run_tests(['time_logger'])
     sys.exit(bool(failures))
+
+
+if __name__ == "__main__":
+    runtests()

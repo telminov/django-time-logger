@@ -47,6 +47,7 @@ class ViewsLog(MultipleObjectMixin, TemplateView):
 
         return params
 
+
 class ViewLogDetail(DetailView):
     model = models_mongo.ViewTimeLog
     template_name = 'time_logger/view_log_detail.html'
@@ -54,6 +55,7 @@ class ViewLogDetail(DetailView):
     def get_object(self, queryset=None):
         pk = self.kwargs.get(self.pk_url_kwarg, None)
         return models_mongo.ViewTimeLog.objects.get(pk=pk)
+
 
 class SlowQueriesLog(MultipleObjectMixin, TemplateView):
     form_class = forms.SlowQueriesLog
