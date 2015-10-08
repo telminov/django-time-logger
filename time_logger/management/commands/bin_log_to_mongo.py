@@ -52,6 +52,9 @@ class Command(BaseCommand):
                     models_mongo.MysqlBinLogTimeLog.objects.create(**entry)
             models_mongo.ParsedLogsFiles.objects.create(file_name=log_path.split('/')[-1])
 
+            # remove parsed_log
+            os.remove(log_path)
+
 
 def _create_readable_binlog(new_binlog_file_names):
     new_binlog_file_paths = []
