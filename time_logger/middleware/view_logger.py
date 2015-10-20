@@ -51,12 +51,17 @@ class ViewTimeLogger(object):
                 username=request.user.username,
                 request_get=self._query_to_dict(request.GET),
                 request_post=self._query_to_dict(request.POST),
+                request_body=request.body,
             )
 
 
     def _query_to_dict(self, qd):
         result = {}
         for key in qd:
+            # mongo dict field not allow '.' and '$' in key
+            if '.' in key or '$' in key:
+                continue
+
             values = qd.getlist(key)
             if len(values) > 1:
                 result[key] = values

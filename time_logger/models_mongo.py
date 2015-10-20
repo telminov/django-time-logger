@@ -13,6 +13,7 @@ class ViewTimeLog(mongoengine.Document):
     username = mongoengine.StringField()
     request_get = mongoengine.DictField()
     request_post = mongoengine.DictField()
+    request_body = mongoengine.StringField()
     dc = mongoengine.DateTimeField()
 
     meta = {
