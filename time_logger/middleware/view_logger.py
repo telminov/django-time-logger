@@ -51,7 +51,7 @@ class ViewTimeLogger(object):
                 username=request.user.username,
                 request_get=self._query_to_dict(request.GET),
                 request_post=self._query_to_dict(request.POST),
-                request_body=request.body,
+                # request_body=request.body,
             )
 
 
