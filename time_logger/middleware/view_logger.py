@@ -41,7 +41,10 @@ class ViewTimeLogger(object):
                          and duration > datetime.timedelta(seconds=settings.LOG_VIEW_TIME)
         if is_exceed_time:
             view_func_module = inspect.getmodule(request.time_logger['view_func'])
-            view_func_path = '%s.%s' % (view_func_module.__name__, request.time_logger['view_func'].__name__)
+            if view_func_module:
+                view_func_path = '%s.%s' % (view_func_module.__name__, request.time_logger['view_func'].__name__)
+            else:
+                view_func_path = ''
 
             models_mongo.ViewTimeLog.objects.create(
                 duration=duration.seconds,
